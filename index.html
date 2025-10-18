@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyper-Tap: O Jogo Viral de Timing</title>
+    
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background-color: #1a1a2e; /* Fundo escuro, moderno */
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            user-select: none; /* Evita seleção de texto no mobile */
+        }
+        #game-container {
+            width: 90%;
+            max-width: 450px;
+            height: 450px;
+            border-radius: 20px;
+            background-color: #0f0f1a;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            position: relative;
+            overflow: hidden;
+            cursor: pointer;
+        }
+        #score, #high-score {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 2em;
+            font-weight: bold;
+            z-index: 10;
+        }
+        #high-score {
+            top: 60px;
+            font-size: 1em;
+            color: #ccc;
+        }
+        #target-area {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50px;
+            background: linear-gradient(90deg, #ff9900 0%, #ff5500 100%); /* Laranja vibrante */
+        }
+        #target-line {
+            position: absolute;
+            bottom: 45px; /* Pouco acima do fundo */
+            left: 0;
+            width: 100%;
+            height: 10px;
+            background-color: #00ffaa; /* Cor de acerto */
+            box-shadow: 0 0 10px #00ffaa;
+            opacity: 0.8;
+        }
+        #moving-object {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 30px;
+            height: 30px;
+            background-color: #ff0055; /* Cor de movimento */
+            border-radius: 50%;
+        }
+        #message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 2.5em;
+            font-weight: bolder;
+            color: #00ffaa;
+            display: none;
+            text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            text-align: center;
+        }
+        /* PONTO DE MONETIZAÇÃO 1: Área para Anúncios (Banner) */
+        #ad-banner {
+            width: 100%;
+            max-width: 450px;
+            height: 50px;
+            margin-top: 20px;
+            background-color: #3a3a5e;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.9em;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+
+<body>
+    
+    <div id="game-container">
+        <div id="score">SCORE: 0</div>
+        <div id="high-score">BEST: 0</div>
+        <div id="target-area"></div>
+        <div id="target-line"></div>
+        <div id="moving-object"></div>
+        <div id="message">Toque para Começar!</div>
+    </div>
+    
+    <div id="ad-banner">
+        [ESPAÇO FUTURO PARA ANÚNCIO BANNER]
+    </div>
+
+    <script>
+        // 1. Variáveis de Estado do Jogo
+        const container = document.getElementById('game-container');
+        const object = document.getElementById('moving-object');
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('high-score');
+        const messageDisplay = document.getElementById('message');
+        
+        let score = 0;
+        let highScore = localStorage.getItem('hyperTapHighScore') || 0;
+        let gameActive = false;
+        let direction = 1; // 1 para descendo, -1 para subindo
+        let speed = 2.5; // Velocidade inicial
+        let positionY = 10;
+        let animationFrame;
+
+        highScoreDisplay.textContent = `BEST: ${highScore}`;
+
+        // 2. Dimensões do Jogo (para cálculo de acerto)
+        const containerHeight = container.clientHeight;
+        const objectHeight = object.clientHeight;
+        const targetLineBottom = 45; // Bottom da linha de acerto
+
+        // 3. Função Principal: Loop do Jogo
+        function gameLoop() {
+            if (!gameActive) return;
+
+            // Atualiza a posição
+            positionY += speed * direction;
+            
+            // Inverte a direção se atingir o topo ou o final
+            if (positionY >= containerHeight - objectHeight || positionY <= 10) {
+                direction *= -1; // Inverte
+            }
+
+            object.style.top = `${positionY}px`;
+
+            // Agenda o próximo frame
+            animationFrame = requestAnimationFrame(gameLoop);
+        }
+
+        // 4. Função de Tap (Toque/Clique)
+        container.addEventListener('click', handleTap);
+
+        function handleTap() {
+            if (!gameActive) {
+                // Inicia o jogo no primeiro toque
+                resetGame();
+                gameActive = true;
+                messageDisplay.style.display = 'none';
+                gameLoop();
+                return;
+            }
+
+            // Posição de acerto é a linha alvo
+            const hitZoneTop = containerHeight - targetLineBottom - 15; // 15 = margem superior da linha
+            const hitZoneBottom = containerHeight - targetLineBottom + 15; // 15 = margem inferior
+
+            // Verifica se o objeto está na zona de acerto (a linha verde)
+            if (positionY >= hitZoneTop && positionY <= hitZoneBottom) {
+                // ACERTO!
+                score++;
+                scoreDisplay.textContent = `SCORE: ${score}`;
+                
+                // Aumenta a dificuldade
+                speed += 0.5;
+                
+                // Inverte a direção imediatamente após o acerto
+                direction *= -1;
+                
+                // PONTO DE MONETIZAÇÃO 2: A cada 5 pontos, exibir Anúncio Intersticial (em apps nativos)
+                if (score > 0 && score % 5 === 0) {
+                    console.log('--- MOSTRAR ANÚNCIO INTERSTICIAL AQUI ---');
+                }
+
+            } else {
+                // ERRO! Fim de Jogo
+                endGame();
+            }
+        }
+
+        // 5. Funções de Início e Fim de Jogo
+        function resetGame() {
+            score = 0;
+            speed = 2.5;
+            positionY = 10;
+            direction = 1;
+            scoreDisplay.textContent = `SCORE: 0`;
+        }
+
+        function endGame() {
+            gameActive = false;
+            cancelAnimationFrame(animationFrame);
+            messageDisplay.style.display = 'block';
+            
+            let finalMessage = `ERRO! Você fez ${score} pontos.`;
+            
+            // Atualiza High Score
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('hyperTapHighScore', highScore);
+                finalMessage = `NOVO RECORDE! ${score} pontos!`;
+            }
+
+            messageDisplay.textContent = `${finalMessage}\nToque para Tentar Novamente.`;
+            highScoreDisplay.textContent = `BEST: ${highScore}`;
+            
+            // PONTO DE MONETIZAÇÃO 3: Aqui é onde você pode inserir um Anúncio de Recompensa (Rewarded Ad)
+            console.log('--- MOSTRAR ANÚNCIO DE RECOMPENSA AQUI ---');
+        }
+
+        // Inicia com a mensagem de toque
+        messageDisplay.style.display = 'block';
+    </script>
+</body>
+</html>
